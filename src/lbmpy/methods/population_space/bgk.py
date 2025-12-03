@@ -4,7 +4,7 @@ import pystencils as ps
 
 from lbmpy import LBStencil
 from lbmpy.equilibrium import GenericDiscreteEquilibrium
-from lbmpy.methods.populationspace import PopulationSpaceSRT
+from lbmpy.methods.population_space import PopulationSpaceSRT
 
 
 class PopulationSpaceBGK(PopulationSpaceSRT):
