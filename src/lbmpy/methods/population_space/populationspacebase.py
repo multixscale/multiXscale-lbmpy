@@ -103,7 +103,7 @@ class PopulationSpaceSRT(AbstractLbMethod):
     @property
     def weights(self):
         print(
-            "The implementation for PopulationSpaceSRT methods takes the equilibrium as an input and so do not have a weights parameter"
+            "PopulationSpaceSRT methods takes the equilibrium as an input and do not have weights"
         )
         return None
 
