@@ -44,15 +44,11 @@ def run_benchmark(N: int, runtime: float, use_omp: bool):
 
     kernel_config = ps.CreateKernelConfig(target=target, cpu_openmp=use_omp)
 
-    method = "bgk"
-    equilibrium_type = "polynomial"
-    base_temperature = stencil.theta0
-
     equilibrium = DiscreteHydrodynamicMaxwellian(
         stencil=stencil,
         compressible=True,
         deviation_only=False,
-        c_s_sq=base_temperature,
+        c_s_sq=stencil.theta0,
         order=3,
     )
 
@@ -92,8 +88,6 @@ def run_benchmark(N: int, runtime: float, use_omp: bool):
     update_rule = create_lb_update_rule(
         lb_method=srt_method, lbm_optimisation=lbm_opt, output=output_fields
     )
-
-    # update_rule
 
     # create stream-collide kernel
     ker_stream_collide = ps.create_kernel(update_rule, config=kernel_config).compile()
@@ -291,11 +285,6 @@ if __name__ == "__main__":
         help="OpenMP parallel run. Serial Execution if not provided.",
     )
     args = parser.parse_args()
-
-    num_threads = os.environ.get("OMP_NUM_THREADS")
-
-    if args.openmp and num_threads is None:
-        warnings.warn("Unspecified OMP_NUM_THREADS.")
 
     execution_mode = f"OMP parallel" if args.openmp else "serial"
     case_description = "\n".join(__doc__.splitlines()[:3])
