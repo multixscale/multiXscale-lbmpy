@@ -13,23 +13,13 @@ The test conducts a validation run and computes the normalized kinetic energy as
 a validation metric. Further, the performance of the employed stream-collide
 algorithm is evaluated and reported in Mega lattice updates per seconds (MLUPS).
 
-The test can be executed run in 4 modes, namely, serial/openmp parallelized
-with/without vectorization.
+The test can be executed run in 2 modes, namely, serial/openmp parallelized.
 
 Serial runs:
     python mixing_layer_2D.py
 
 OpenMP parallel runs:
-    python mixing_layer_2D.py --openmp --num-threads 4
-        The test is serially executed if num-threads is not provided
-
-Vectorized runs:
-    A list of instruction sets supported by the hardware being used is
-    internally populated as a list. This requires an installation of py-cpuinfo.
-    Among available options, the last element of the list is chosen. Vectorized
-    runs can be executed as:
-        python mixing_layer_2D.py --vectorized
-        python mixing_layer_2D.py --openmp --num-threads 4 --vectorized
+    OMP_NUM_THREADS=4 python mixing_layer_2D.py --openmp
 """
 
 from lbmpy.methods.population_space import PopulationSpaceBGK
@@ -40,14 +30,13 @@ from lbmpy.macroscopic_value_kernels import macroscopic_values_setter
 
 import numpy, sympy
 import pystencils as ps
-from pystencils.cpu.vectorization import get_supported_instruction_sets
 
 from statistics import median
 
 import argparse, warnings, time
 
 
-def run_benchmark(optimization: dict, N: int, runtime: float, use_omp: bool):
+def run_benchmark(N: int, runtime: float, use_omp: bool):
     target = ps.Target.CPU
     stencil = LBStencil("D2Q9")
     # number of ghost layers
@@ -283,21 +272,6 @@ def run_benchmark(optimization: dict, N: int, runtime: float, use_omp: bool):
     )
 
 
-def get_optimizations(args):
-    optimizations = dict()
-    if args.vectorized:
-        optimizations["vectorization"] = dict(
-            {
-                "instruction_set": get_supported_instruction_sets()[-1],
-                "assume_aligned": True,
-            }
-        )
-
-    if args.openmp:
-        optimizations["openmp"] = args.num_threads
-    return optimizations
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter
@@ -316,31 +290,14 @@ if __name__ == "__main__":
         action="store_true",
         help="OpenMP parallel run. Serial Execution if not provided.",
     )
-    parser.add_argument(
-        "--num-threads", type=int, default=1, help="Number of threads (default 1)"
-    )
-    parser.add_argument(
-        "--vectorized", action="store_true", help="Enable vectorization"
-    )
     args = parser.parse_args()
 
-    execution_mode = (
-        f"OMP parallel ({args.num_threads} threads)" if args.openmp else "serial"
-    )
-    vectorization_description = ""
-    if args.vectorized:
-        vectorization_warning = (
-            "Supported instruction sets not found. Ensure pycpuinfo is installed."
-        )
-        isets = get_supported_instruction_sets()
-        if isets is not None:
-            vectorization_description = (
-                f"; supported instruction sets: {isets}. Using {isets[-1]}."
-            )
-        else:
-            warnings.warn(vectorization_warning)
-            args.vectorized = False
-    case_string = f"vectorized {execution_mode}" if args.vectorized else execution_mode
+    num_threads = os.environ.get("OMP_NUM_THREADS")
+
+    if args.openmp and num_threads is None:
+        warnings.warn("Unspecified OMP_NUM_THREADS.")
+
+    execution_mode = f"OMP parallel" if args.openmp else "serial"
     case_description = "\n".join(__doc__.splitlines()[:3])
 
     print(
@@ -348,12 +305,11 @@ if __name__ == "__main__":
 
     Execution Mode:
     ---------------
-        {case_string.title()} Run{vectorization_description}"""
+        {execution_mode.title()} Run"""
     )
 
-    opt = get_optimizations(args)
     start_time = time.perf_counter()
-    run_benchmark(opt, args.grid_size, args.run_time, args.openmp)
+    run_benchmark(args.grid_size, args.run_time, args.openmp)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
     minutes = int(elapsed_time // 60)
